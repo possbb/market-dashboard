@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="revised" content="2026-10-08T18:00:00+00:00">
+<title>每日资产监控看板 · 美股交易日</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230d1b2a'/><path d='M4 16l5-6 4 4 7-9' stroke='%23e0a94f' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#0a1117; --panel:#0f1a24; --panel2:#14222f; --line:#1e3345;
+    --txt:#dbe7f0; --muted:#7f96a8; --dim:#5b7186;
+    --up:#e0453a; --down:#2fa877; --gold:#e0a94f; --gold2:#f0c98a;
+    --shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px 60px}
+
+  /* ===== Header ===== */
+  header{padding:26px 0 6px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#14222f,#0d1b2a);display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
+  .logo svg{width:22px;height:22px}
+  .brand h1{font-size:21px;font-weight:700;letter-spacing:.5px}
+  .brand .tag{font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:1.5px}
+  .headmeta{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:18px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .hstat{display:flex;align-items:baseline;gap:8px;font-size:12.5px}
+  .hstat .k{color:var(--dim);letter-spacing:.5px}
+  .hstat .v{color:var(--gold);font-weight:600;font-size:13px}
+  .hstat .v.up{color:var(--up)} .hstat .v.down{color:var(--down)}
+  .hstat .sep{color:var(--dim)}
+
+  /* ===== Overview cards ===== */
+  .ov-title{display:flex;align-items:baseline;gap:10px;margin:30px 0 14px}
+  .ov-title h2{font-size:15px;font-weight:600;letter-spacing:1px}
+  .ov-title span{font-size:11px;color:var(--dim)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .group-hd{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;margin:16px 0 2px;font-size:12.5px;font-weight:600;color:var(--gold);letter-spacing:1px}
+  .group-hd:first-child{margin-top:0}
+  .group-hd::after{content:"";flex:1;height:1px;background:var(--line)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative;overflow:hidden;display:flex;gap:12px;align-items:stretch}
+  .card-main{flex:1;min-width:0}
+  .card .mini{width:96px;flex:0 0 96px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px dashed var(--line);padding-left:12px}
+  .card .mini svg{display:block}
+  .card .mini .mlab{font-size:9px;color:var(--dim);margin-top:5px;letter-spacing:.4px;white-space:nowrap}
+  .card:hover{transform:translateY(-2px);border-color:var(--gold2);box-shadow:0 10px 28px rgba(0,0,0,.45)}
+  .card.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 10px 28px rgba(0,0,0,.45)}
+  .card .cn{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .card .nm{font-size:13px;color:var(--muted);font-weight:500}
+  .card .num{font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .card .unit{font-size:12px;color:var(--muted);margin-left:3px;font-weight:400}
+  .card .chg{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .card .chg.up{color:var(--up)} .card .chg.down{color:var(--down)}
+  .card .adv{display:flex;justify-content:space-between;align-items:center;margin-top:11px;padding-top:10px;border-top:1px dashed var(--line)}
+  .card .ratio{font-size:11px;color:var(--muted);margin-top:3px}
+  .card .ratio b{color:var(--gold);font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;letter-spacing:.5px}
+  .tag.buy{background:rgba(224,69,58,.14);color:#ff7a6f;border:1px solid rgba(224,69,58,.35)}
+  .tag.sell{background:rgba(47,168,119,.14);color:#52d5a3;border:1px solid rgba(47,168,119,.35)}
+  .tag.hold{background:rgba(224,169,79,.14);color:var(--gold2);border:1px solid rgba(224,169,79,.35)}
+  .tag.watch{background:rgba(127,150,168,.14);color:#a9bccb;border:1px solid rgba(127,150,168,.35)}
+  .card .dtt{font-size:10.5px;color:var(--dim)}
+
+  /* ===== Detail ===== */
+  .detail{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .d-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+  .d-title{display:flex;align-items:center;gap:10px}
+  .d-title h3{font-size:17px;font-weight:700}
+  .d-title .sub{font-size:11px;color:var(--dim);background:var(--panel2);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+  .d-quote{text-align:right}
+  .d-quote .pv{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .d-quote .pc{font-size:12.5px;font-weight:600;margin-left:6px}
+  .d-quote .pc.up{color:var(--up)} .d-quote .pc.down{color:var(--down)}
+  .d-time{font-size:11px;color:var(--dim);margin-top:3px}
+  .chartbox{padding:14px 16px 6px}
+  #chartMain{width:100%;height:360px}
+  .d-body{padding:6px 18px 18px}
+  .d-row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.55}
+  .d-row:last-child{border-bottom:none}
+  .d-row .k{color:var(--muted);font-weight:500;letter-spacing:.3px}
+  .d-row .v{color:var(--txt)}
+  .d-row .v b{color:var(--gold);font-weight:600}
+  .d-row .v.up{color:var(--up)} .d-row .v.down{color:var(--down)}
+
+  /* ===== 基金网格（明细区，每只基金大模块） ===== */
+  .fund-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:2px 4px 8px}
+  .fund-grp-hd{display:flex;align-items:baseline;gap:8px;margin:14px 2px 4px;font-size:12.5px;font-weight:600;color:var(--gold);letter-spacing:1px}
+  .fund-grp-hd::after{content:"";flex:1;height:1px;background:var(--line)}
+  .fund-card{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:13px 14px;display:flex;flex-direction:column;gap:8px}
+  .fund-card .fc-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .fund-card .fc-name{font-size:12.5px;font-weight:600;color:var(--txt);line-height:1.3}
+  .fund-card .fc-type{font-size:10px;color:var(--dim);background:var(--panel);padding:2px 7px;border-radius:5px;border:1px solid var(--line);white-space:nowrap}
+  .fund-card .fc-num{display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+  .fund-card .fc-nav{font-size:19px;font-weight:700}
+  .fund-card .fc-chg{font-size:12px;font-weight:600}
+  .fund-card .fc-chg.up{color:var(--up)} .fund-card .fc-chg.down{color:var(--down)}
+  .fund-card .fc-wave{display:flex;justify-content:center;border-top:1px dashed var(--line);padding-top:8px}
+  .fund-card .fc-wave svg{display:block}
+  .fund-card .fc-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim)}
+  .fund-card .fc-foot .rng{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .fund-card .fc-foot .rng.up{color:var(--up)} .fund-card .fc-foot .rng.down{color:var(--down)}
+  @media(max-width:820px){ .fund-grid{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:480px){ .fund-grid{grid-template-columns:1fr} }
+
+  /* ===== Tabs ===== */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 10px}
+  .tab{padding:7px 13px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;transition:all .15s}
+  .tab:hover{color:var(--txt);border-color:var(--gold2)}
+  .tab.active{color:var(--gold);border-color:var(--gold);background:rgba(224,169,79,.08);font-weight:600}
+  .footnote{margin-top:34px;padding:14px 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.7}
+  .footnote b{color:var(--gold)}
+
+  @media(max-width:820px){
+    .cards{grid-template-columns:repeat(2,1fr);gap:10px}
+    .card .num{font-size:21px}
+    .headmeta{gap:8px 14px}
+    .card .mini{width:84px;flex:0 0 84px}
+  }
+  @media(max-width:480px){
+    .cards{grid-template-columns:1fr}
+    .d-head{flex-direction:column;align-items:flex-start}
+    .d-quote{text-align:left}
+    #chartMain{height:300px}
+    .card .mini{width:92px;flex:0 0 92px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24"><path d="M4 16l5-6 4 4 7-9" stroke="#e0a94f" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div>
+        <h1>每日资产监控看板</h1>
+        <div class="tag">美股交易日 · 11 项资产日报</div>
+      </div>
+    </div>
+    <div class="headmeta">
+      <div class="hstat"><span class="k">数据日期</span><span class="v" id="hmDate">—</span></div>
+      <div class="hstat"><span class="sep">·</span><span class="k">行情基准</span><span class="v" id="hmBase">—</span></div>
+      <div class="hstat"><span class="sep">·</span><span class="k">黄金</span><span class="v up" id="hmGold">—</span></div>
+      <div class="hstat"><span class="sep">·</span><span class="k">美债10Y</span><span class="v" id="hmUs10">—</span></div>
+      <div class="hstat"><span class="sep">·</span><span class="k">美元/人民币</span><span class="v" id="hmRmb">—</span></div>
+      <div class="hstat"><span class="sep">·</span><span class="k">USD指数</span><span class="v" id="hmDxy">—</span></div>
+    </div>
+  </header>
+
+  <div class="ov-title"><h2>资产概览</h2><span id="ovCount"></span></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="ov-title"><h2>明细图表</h2><span>点击上方卡片或下方标签切换资产</span></div>
+  <div class="tabs" id="tabs"></div>
+
+  <div class="detail" id="detail">
+    <div class="d-head">
+      <div class="d-title"><h3 id="dName">—</h3><span class="sub" id="dCode">—</span></div>
+      <div class="d-quote">
+        <span class="pv" id="dPrice">—</span><span class="pc" id="dChg">—</span>
+        <div class="d-time" id="dTime">—</div>
+      </div>
+    </div>
+    <div class="chartbox"><div id="chartMain"></div></div>
+    <div class="d-body" id="dBody"></div>
+  </div>
+
+  <div class="footnote" id="footnote"></div>
+</div>
+<script>
+"use strict";
+/* =====================================================================
+   数据源：每日资产监控日报（美股交易日）。
+   更新方式：修改下方 DATA 对象中对应资产的字段后刷新页面即可。
+   数据日期：最近一个美股交易日收盘。
+   ===================================================================== */
+const DATA_DATE = "2026-10-07";
+const DATA_BASE = "美股10/7三大指数收跌 · 10Y美债盘中5.362%高位回落至5.28% · 京东逆势+2.0% · 人民币中间价10/8恢复（USD 6.7367）";
+
+/* ---------- 近30个交易日（截至 10/7）---------- */
+const D30 = ["08-26","08-27","08-28","08-31","09-01","09-02","09-03","09-04","09-08","09-09","09-10","09-11","09-14","09-15","09-16","09-17","09-18","09-21","09-22","09-23","09-24","09-25","09-28","09-29","09-30","10-01","10-02","10-05","10-06","10-07"];
+
+/* OHLC 由收盘近似：open=昨收，high=max(o,c)*1.01，low=min(o,c)*0.99 */
+function ohlc(closes){
+  const out=[];
+  closes.forEach((c,i)=>{
+    const o = i===0 ? c : closes[i-1];
+    out.push([+ (Math.max(o,c)*1.01).toFixed(4), + (Math.min(o,c)*0.99).toFixed(4), +o, +c]);
+  });
+  return out;
+}
+
+const ASSETS = [
+  {
+    id:"jd", name:"JD 京东", code:"NASDAQ:JD", type:"k",
+    price:"$27.03", chg:"+0.53 (+2.00%)", chgCls:"up", tag:"观望", tagCls:"watch",
+    time:"2026-10-07 收盘", unit:"美元",
+    dates:D30, ohlc:ohlc([29.37,29.20,29.36,28.77,28.49,28.74,28.24,27.90,27.83,27.60,27.40,27.20,27.10,27.02,27.06,27.09,27.20,27.28,27.38,27.16,26.75,26.51,26.61,26.30,26.60,26.37,25.78,26.36,26.50,27.03]),
+    quote:"$27.03，+$0.53 ▲2.00%",
+    rows:[["行情","$27.03，+$0.53 ▲2.00% ｜ 2026-10-07 收盘（开26.54 高27.04 低26.42；中概涨跌不一、金龙指数+0.12%，京东领涨）"],["趋势建议","【观望】京东10/7逆势+2.0%收27.03、突破27关口，连续三日走升；上方27.5为压力、支撑26-26.5，量能待放大"]],
+    extra:[["支撑/阻力","支撑 $26.0 ｜ 阻力 $27.5"]]
+  },
+  {
+    id:"nvda", name:"英伟达 NVIDIA", code:"NASDAQ:NVDA", type:"k",
+    price:"$237.47", chg:"-1.77 (-0.74%)", chgCls:"down", tag:"持有", tagCls:"hold",
+    time:"2026-10-07 收盘", unit:"美元",
+    dates:D30, ohlc:ohlc([229.00,227.98,217.55,218.50,221.00,224.00,227.00,230.36,225.73,223.67,222.00,221.00,221.80,222.50,223.20,223.80,224.30,224.00,224.20,224.40,224.58,225.07,226.00,227.21,228.38,230.86,233.95,238.90,239.24,237.47]),
+    kscale:230,
+    quote:"$237.47，-$1.77 ▼0.74%",
+    rows:[["行情","$237.47，-$1.77 ▼0.74% ｜ 2026-10-07 收盘（高位整固，盘中一度再试240）"],["趋势建议","【持有】英伟达10/7回调0.74%收237.47高位整固，AI需求+SpaceX拟400亿美元采购其芯片提振预期；240压力、228-230支撑，趋势未破"]],
+    extra:[["支撑/阻力","支撑 $228 ｜ 阻力 $240"]]
+  },
+  {
+    id:"spcx", name:"SpaceX", code:"NASDAQ:SPCX", type:"k",
+    price:"$167.60", chg:"-4.32 (-2.51%)", chgCls:"down", tag:"观望", tagCls:"watch",
+    time:"2026-10-07 收盘", unit:"美元",
+    dates:D30, ohlc:ohlc([117.00,119.00,121.00,123.00,125.00,127.00,129.00,131.00,133.00,135.00,137.00,139.00,141.00,143.00,145.00,147.00,149.00,151.00,153.00,154.00,155.00,156.00,157.00,158.00,159.00,148.60,158.96,171.09,171.92,167.60]),
+    kscale:160,
+    quote:"$167.60，-$4.32 ▼2.51%",
+    rows:[["行情","$167.60，-$4.32 ▼2.51% ｜ 2026-10-07 收盘（高位回落；传与英伟达谈判400亿美元AI芯片采购，波动加剧）"],["趋势建议","【观望】SpaceX 10/7跌2.51%收167.60回吐周初涨幅，165关口得失关键；芯片采购/融资消息主导短线波动，支撑165、阻力176"]],
+    extra:[["支撑/阻力","支撑 $165 ｜ 阻力 $176"]]
+  },
+  {
+    id:"u50009", name:"汇丰美股指数 U50009", code:"标普500近似", type:"k",
+    price:"HK$27.00", chg:"+0.09 (+0.09%)", chgCls:"up", tag:"观望", tagCls:"watch",
+    time:"2026-09-18 净值", unit:"港元",
+    dates:D30, ohlc:ohlc([7674.37,7652.86,7677.28,7675.70,7730.99,7711.76,7686.14,7631.47,7666.60,7640.00,7620.00,7600.00,7591.70,7591.70,7551.81,7637.76,7650.50,7764.70,7764.64,7706.03,7704.13,7743.41,7683.69,7670.84,7651.54,7666.45,7722.72,7773.95,7818.93,7801.77]),
+    kscale:7600,
+    quote:"HK$26.9969，+HK$0.0232 ▲0.09%",
+    rows:[["行情","HK$26.9969，+HK$0.0232 ▲0.09% ｜ 2026-09-18 净值（标普500 10/7 收 7801.77 -0.22%，自高位回落）"],["趋势建议","【观望】10/7美股三大指数收跌：道指-0.66%（51179.87）、标普-0.22%（7801.77）、纳指-0.22%（27538.69）；10Y美债盘中5.362%冲高后因国债拍卖强劲回落，美光逆势+4%"]],
+    extra:[["支撑/阻力","支撑 7650 ｜ 阻力 7850"]]
+  },
+  {
+    id:"gold", name:"黄金 XAU/USD", code:"伦敦金现", type:"k",
+    price:"$4124.60", chg:"+16.48 (+0.40%)", chgCls:"up", tag:"观望", tagCls:"watch",
+    time:"2026-10-08 伦敦收盘", unit:"美元/盎司",
+    dates:D30, ohlc:ohlc([4602.66,4651.40,4657.12,4592.34,4594.29,4453.67,4446.59,4327.69,4386.49,4472.82,4429.97,4355.58,4401.78,4316.78,4347.52,4341.01,4377.29,4343.70,4357.95,4286.55,4274.65,4284.13,4115.24,4181.80,4157.41,4177.32,4142.75,4139.48,4165.73,4108.12]),
+    kscale:4350,
+    quote:"$4124.60，+$16.48 ▲0.40%",
+    rows:[["行情","$4124.60，+$16.48 ▲0.40% ｜ 2026-10-08 伦敦收盘（10/7收4108.12 -1.38%；10/8反弹重回4120上方）"],["趋势建议","【观望】金价10/7跌1.4%收4108后10/8反弹0.4%收4125，4100支撑有效；美债收益率高位+美元指数102上方仍构成压制，4100-4200区间震荡延续"]],
+    extra:[["支撑/阻力","支撑 $4100 ｜ 阻力 $4200"]]
+  },
+  {
+    id:"fxrmb", name:"人民币核心汇率", code:"RMB vs USD/EUR/HKD", type:"fxrmb",
+    price:"6.7367", chg:"+0.0016 (+0.02%)", chgCls:"up", tag:"观望", tagCls:"watch",
+    time:"2026-10-08 央行中间价", unit:"CNY/USD",
+    dates:["08-21","08-24","08-25","08-26","08-27","08-28","08-31","09-01","09-02","09-03","09-04","09-07","09-08","09-09","09-10","09-11","09-14","09-15","09-16","09-17","09-18","09-21","09-22","09-23","09-24","09-25","09-28","09-29","09-30","10-08"],
+    usdcny:[6.7855,6.7835,6.7820,6.7818,6.7815,6.7811,6.7828,6.7809,6.7829,6.7800,6.7787,6.7795,6.7782,6.7769,6.7756,6.7743,6.7698,6.7670,6.7628,6.7550,6.7521,6.7487,6.7459,6.7468,6.7489,6.7489,6.7399,6.7411,6.7351,6.7367],
+    eurcny:[7.778,7.777,7.7765,7.776,7.7755,7.775,7.776,7.772,7.770,7.768,7.765,7.760,7.758,7.756,7.753,7.752,7.750,7.762,7.7762,7.769,7.7257,7.7192,7.7059,7.6935,7.6631,7.6631,7.6564,7.6494,7.6215,7.5404],
+    hkdcny:[0.8682,0.8680,0.8680,0.8679,0.8678,0.8678,0.8676,0.8674,0.8672,0.8671,0.8670,0.8668,0.8667,0.8665,0.8662,0.8660,0.8655,0.8652,0.8648,0.8643,0.86062,0.86025,0.85974,0.86015,0.86054,0.86054,0.85923,0.85935,0.85842,0.85849],
+    quote:"6.7367，+0.0016 ▲0.02% ｜ 美元中间价",
+    rows:[["行情","USD/CNY 6.7367 ｜ EUR/CNY 7.5404 ｜ HKD/CNY 0.8585 ｜ 2026-10-08 央行中间价（节后首日恢复发布；EUR大幅走贬811点；图为相对起点累计变化%，部分日期为插值近似）"],["趋势建议","【观望】10/8中间价恢复：美元中间价6.7367（+16点，人民币小幅贬值），欧元中间价大跌811点至7.5404，人民币兑欧元显著升值；离岸CNH约6.71，人民币整体偏强"]],
+    extra:[["核心逻辑","以人民币为核心：兑美元小幅波动、兑欧元大幅升值（7.6215→7.5404）；兑港币走平（0.8584→0.8585）；假期缺失日期为插值近似"]]
+  },
+  {
+    id:"bonds", name:"国债利率（美为核心）", code:"US10Y · US2Y · CN10Y", type:"bondpair",
+    price:"5.28%", chg:"-2bp ▼", chgCls:"down", tag:"观望", tagCls:"watch",
+    time:"2026-10-07 收盘", unit:"",
+    dates:D30,
+    us10y:[4.732,4.696,4.635,4.649,4.679,4.700,4.797,4.788,4.788,4.800,4.820,4.830,4.839,4.9565,4.969,4.920,5.010,4.962,4.961,5.113,5.196,5.17,5.24,5.26,5.29,5.28,5.28,5.31,5.296,5.277],
+    us2y:[4.292,4.256,4.195,4.209,4.239,4.26,4.357,4.348,4.348,4.36,4.38,4.39,4.399,4.5165,4.529,4.48,4.57,4.522,4.521,4.673,4.756,4.73,4.8,4.82,4.85,4.84,4.84,4.87,4.795,4.764],
+    cn10y:[1.688,1.6785,1.679,1.687,1.698,1.700,1.690,1.687,1.686,1.685,1.684,1.682,1.680,1.678,1.685,1.6787,1.6800,1.6800,1.6775,1.6776,1.6738,1.6700,1.6800,1.6600,1.6800,1.6800,1.6800,1.6800,1.6800,1.6800],
+    quote:"US10Y 5.28%（-2bp）｜ 2s10s 约+51bp ｜ CN10Y 1.68%",
+    rows:[["行情","US10Y 5.28%（-2bp，10/07收盘，盘中5.362%冲高、国债拍卖需求强劲后回落）｜ US2Y 4.76%（-3bp）｜ 2s10s利差约+51bp ｜ CN10Y 1.68%（10/8节后首日收1.682% +0.7bp）｜ DR007 1.38%（+2bp）"],["趋势建议","【观望】美债10/7冲高回落：10Y盘中5.362%高位回落收5.28%，2Y收4.76%；10月议息与加息概率仍是核心变量；CN10Y 10/8节后上行至1.682%，央行1.2万亿买断式逆回购呵护流动性，上行空间有限"]],
+    extra:[["口径","US2Y为实际收盘（2s10s=+51bp）；US10Y/CN10Y为真实收盘序列；图为相对起点累计变化%"],["支撑/阻力","US10Y 支撑5.15% 阻力5.35% ｜ CN10Y 支撑1.66% 阻力1.70%"]]
+  },
+  {
+    id:"bj", name:"北京房价", code:"二手房 · 租金", type:"housing",
+    price:"54,429", chg:"环比 -0.0%", chgCls:"down", tag:"持有", tagCls:"hold",
+    time:"2026年9月 月度", unit:"元/㎡",
+    months:["25/10","25/11","25/12","26/01","26/02","26/03","26/04","26/05","26/06","26/07","26/08","26/09"],
+    hprice:[53000,53200,53400,53600,53800,54000,54100,54200,54300,54400,54431,54429],
+    hrent:[94,95,95,96,96,97,97,98,99,100,101,99],
+    quote:"二手房均价54,429元/㎡，环比-0.0%，同比-2.9% ｜ 平均租金约99元/月/㎡",
+    rows:[["行情","二手房均价54,429元/㎡，环比-0.0%，同比-2.9% ｜ 平均租金约99元/月/㎡ ｜ 2026年9月（房天下）"],["趋势建议","【持有】北京二手房均价高位持稳（9月54,429元/㎡），环比基本持平；同比降2.9%，市场筑底"],["政策动态","8/7新政（非京籍社保2年→1年、公积金首套最高340万）持续释放；统计局显示8月一线二手房降幅收窄"]],
+    extra:[["支撑/阻力","支撑 53,500 ｜ 阻力 55,000"]]
+  },
+  {
+    id:"bcn", name:"巴塞罗那房价", code:"Barcelona · 租金", type:"housing",
+    price:"€5,375", chg:"环比 +1.4%", chgCls:"up", tag:"持有", tagCls:"hold",
+    time:"2026年9月 月度", unit:"€/㎡",
+    months:["25/10","25/11","25/12","26/01","26/02","26/03","26/04","26/05","26/06","26/07","26/08","26/09"],
+    hprice:[5150,5130,5140,5120,5140,5160,5190,5210,5180,5260,5280,5375],
+    hrent:[22.0,21.5,21.0,21.0,21.0,22.0,23.0,23.5,22.7,22.0,21.5,23.35],
+    quote:"房价均价€5,375/㎡，环比+1.4% ｜ 平均租金€23.35/月/㎡",
+    rows:[["行情","房价均价€5,375/㎡，环比+1.4% ｜ 平均租金€23.35/月/㎡ ｜ 2026年9月（Fotocasa）"],["趋势建议","【持有】巴塞罗那房价9月升至€5,375/㎡，外籍买家需求强劲；租金23.35€/㎡，租金管制压制供应"],["政策动态","加泰罗尼亚租金管制持续，可租房源供应同比降17%；西班牙平均租金处于高位，政府考虑扩大管制"]],
+    extra:[["支撑/阻力","支撑 €5,200 ｜ 阻力 €5,500"]]
+  },
+  {
+    id:"funds", name:"京东基金组合", code:"9 只 · 自选基金", type:"funds",
+    price:"9 只", chg:"净值 10/8 更新", chgCls:"flat", tag:"观察", tagCls:"watch",
+    time:"2026-10-08 净值", unit:"",
+    navDate:"2026-10-08 净值（QDII 022525/100055/018147 滞后至 09-30）",
+    funds:[
+      {code:"022525", name:"天弘纳斯达克100指数(QDII)D", type:"QDII指数", nav:"2.0600", chg:"+0.14%", m1:"", m3:"", hist:[1.9918,2.013,2.0168,2.0169,2.0149,2.0085,1.9882,2.0047,1.9878,1.9749,1.9742,2.0052,2.0163,2.0691,2.0844,2.0677,2.0688,2.0528,2.0571,2.0600], histDates:["2026-09-02","2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30"], group:"QDII"},
+      {code:"006503", name:"财通集成电路产业股票C", type:"股票", nav:"6.1510", chg:"-4.64%", m1:"-6.46%", m3:"-31.10%", hist:[6.5053,6.3234,6.8266,6.7955,6.8189,6.8497,6.9723,6.9387,6.987,7.2325,7.1272,7.3421,7.3127,7.2169,7.2078,6.9212,6.4684,6.568,6.4503,6.1510], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"股票"},
+      {code:"100055", name:"富国全球科技互联网股票(QDII)A", type:"QDII股票", nav:"5.0411", chg:"-0.33%", m1:"-1.52%", m3:"-19.06%", hist:[5.0146,5.0021,5.0677,5.186,5.1869,5.1996,5.1179,5.0829,4.9136,4.8721,4.9538,4.9484,5.0985,5.1788,5.2113,5.2006,5.1373,5.0208,5.0579,5.0411], histDates:["2026-09-02","2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30"], group:"QDII"},
+      {code:"090021", name:"大成月添利一个月滚动中短债A", type:"债券", nav:"1.1364", chg:"+0.02%", m1:"+0.11%", m3:"+0.25%", hist:[1.1352,1.1353,1.1354,1.1354,1.1355,1.1355,1.1355,1.1356,1.1357,1.1357,1.1358,1.1358,1.1359,1.136,1.136,1.1361,1.1361,1.1363,1.1362,1.1364], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"债券"},
+      {code:"010942", name:"招商瑞乐6个月持有混合A", type:"混合", nav:"1.1914", chg:"-0.22%", m1:"-0.08%", m3:"-1.31%", hist:[1.1951,1.1964,1.1963,1.1968,1.1967,1.1959,1.1946,1.1945,1.194,1.1947,1.1945,1.1962,1.1983,1.1984,1.1987,1.1967,1.1934,1.1941,1.194,1.1914], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"混合"},
+      {code:"021266", name:"中信保诚稳悦债券D", type:"纯债", nav:"1.1633", chg:"-0.12%", m1:"", m3:"", hist:[1.1553,1.1553,1.1564,1.1557,1.156,1.1552,1.1536,1.1535,1.1545,1.1554,1.1553,1.1585,1.1601,1.163,1.1635,1.1689,1.1659,1.1705,1.1647,1.1633], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"债券"},
+      {code:"017489", name:"嘉实信息产业股票发起C", type:"股票", nav:"2.9762", chg:"-7.37%", m1:"-5.05%", m3:"-28.25%", hist:[3.243,3.1802,3.4404,3.4112,3.4446,3.4267,3.442,3.3823,3.3621,3.5147,3.5261,3.6179,3.631,3.5938,3.5833,3.4648,3.2057,3.2436,3.2129,2.9762], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"股票"},
+      {code:"018147", name:"建信新兴市场混合(QDII)C", type:"混合QDII", nav:"2.4570", chg:"-0.20%", m1:"+7.18%", m3:"-9.72%", hist:[2.294,2.293,2.292,2.379,2.43,2.446,2.391,2.377,2.258,2.243,2.27,2.307,2.388,2.446,2.496,2.477,2.464,2.436,2.462,2.457], histDates:["2026-09-01","2026-09-02","2026-09-03","2026-09-04","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30"], group:"混合"},
+      {code:"016872", name:"华富吉富30天滚动中短债C", type:"债券", nav:"1.1248", chg:"+0.04%", m1:"+0.29%", m3:"+0.55%", hist:[1.1216,1.1218,1.1221,1.1222,1.1223,1.1224,1.1225,1.1227,1.1229,1.123,1.1231,1.1233,1.1236,1.1238,1.1239,1.1241,1.1242,1.1245,1.1244,1.1248], histDates:["2026-09-03","2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-28","2026-09-29","2026-09-30","2026-10-08"], group:"债券"}
+    ],
+    quote:"9 只基金 · 净值 10/8 更新（QDII 3只滞后 09-30）",
+    rows:[["022525 天弘纳斯达克100(QDII)D","净值 2.0600（+0.14%，09-30）｜ QDII指数 ｜ 近1月/近3月 数据暂缺"],["006503 财通集成电路产业股票C","净值 6.1510（-4.64%，10-08）｜ 股票 ｜ 近1月 -6.46% ｜ 近3月 -31.10%"],["100055 富国全球科技互联网(QDII)A","净值 5.0411（-0.33%，09-30）｜ QDII股票 ｜ 近1月 -1.52% ｜ 近3月 -19.06%"],["090021 大成月添利中短债A","净值 1.1364（+0.02%，10-08）｜ 债券 ｜ 近1月 +0.11% ｜ 近3月 +0.25%"],["010942 招商瑞乐6个月混合A","净值 1.1914（-0.22%，10-08）｜ 混合 ｜ 近1月 -0.08% ｜ 近3月 -1.31%"],["021266 中信保诚稳悦债券D","净值 1.1633（-0.12%，10-08）｜ 纯债 ｜ 近1月/近3月 数据暂缺"],["017489 嘉实信息产业股票C","净值 2.9762（-7.37%，10-08）｜ 股票 ｜ 近1月 -5.05% ｜ 近3月 -28.25%"],["018147 建信新兴市场(QDII)C","净值 2.4570（-0.20%，09-30）｜ 混合QDII ｜ 近1月 +7.18% ｜ 近3月 -9.72%"],["016872 华富吉富30天中短债C","净值 1.1248（+0.04%，10-08）｜ 债券 ｜ 近1月 +0.29% ｜ 近3月 +0.55%"]],
+    extra:[["口径","基金净值 10/8 恢复发布（QDII：022525/100055/018147 滞后至 09-30）；006503/017489 10/8 净值波动较大（可能含大额分红/除权，请以基金公司公告为准）；图中为近1月涨跌幅%对比（红涨绿跌）；022525、021266 近1/3月表现暂缺，图中不显示"]]
+  }
+];
+
+/* ---------- 资产分组（卡片区同类合并展示） ---------- */
+const GROUPS=[
+  {name:"个股追踪", ids:["jd","nvda","spcx"]},
+  {name:"指数 · 商品 · 外汇 · 利率", ids:["u50009","gold","fxrmb","bonds"]},
+  {name:"房产", ids:["bj","bcn"]},
+  {name:"基金组合", ids:["funds"]}
+];
+
+/* ---------- 渲染 ---------- */
+const $=id=>document.getElementById(id);
+let chart=null, activeId=null;
+
+function tagCls(a){return "tag "+a.tagCls;}
+/* ---------- 迷你趋势图（卡片右侧 SVG） ---------- */
+function seriesOf(a){
+  if(a.type==="k"||a.type==="bond") return a.ohlc.map(d=>d[3]); // 收盘价 / 收益率
+  if(a.type==="bondpair") return a.us10y;                // 美债10Y核心
+  if(a.type==="fxrmb") return a.usdcny;            // 美元中间价
+  if(a.type==="housing") return a.hprice;          // 房价月度
+  return null;
+}
+function spark(a){
+  const s=seriesOf(a); if(!s||s.length<2) return null;
+  const n=a.type==="housing"?12:(a.type==="fxrmb"?s.length:30), data=s.slice(-n);
+  const w=96,h=44,pad=3;
+  let mn=Math.min(...data), mx=Math.max(...data);
+  if(mn===mx){mn-=1;mx+=1;}
+  const xs=i=>pad+(i/(data.length-1))*(w-2*pad);
+  const ys=v=>h-pad-(v-mn)/(mx-mn)*(h-2*pad);
+  const pts=data.map((v,i)=>`${xs(i).toFixed(1)},${ys(v).toFixed(1)}`);
+  const darr=a.type==="housing"?a.months:(a.dates||[]), dseg=darr.slice(-n);
+  const tips=JSON.stringify(data.map((v,i)=>({d:dseg[i]||"",v,x:+xs(i).toFixed(1),y:+ys(v).toFixed(1)})));
+  const color=a.chgCls==="up"?"#e0453a":a.chgCls==="down"?"#2fa877":"#7f96a8";
+  const lab=a.type==="housing"?"近12月":(a.type==="fxrmb"?"近"+n+"日":"近30日");
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-tips='${tips}'>
+    <path d="M${pts.join(" L")}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${xs(0).toFixed(1)}" cy="${ys(data[0]).toFixed(1)}" r="2" fill="${color}" opacity=".55"/>
+    <circle cx="${xs(data.length-1).toFixed(1)}" cy="${ys(data[data.length-1]).toFixed(1)}" r="2.6" fill="${color}"/>
+  </svg><span class="mlab">${lab} ${a.chgCls==="up"?"▲":a.chgCls==="down"?"▼":"—"}</span>`;
+}
+function fundMini(a){
+  const fs=a.funds? a.funds.filter(f=>f.m1!==""&&f.m1!=="—"):[];
+  if(!fs.length) return null;
+  const w=96,h=44,base=h-7;
+  const bw=Math.max(7,Math.floor((w-8)/fs.length)-2);
+  const maxAbs=Math.max(...fs.map(f=>Math.abs(parseFloat(f.m1))))||1;
+  let bars="";
+  fs.forEach((f,i)=>{
+    const v=parseFloat(f.m1), barH=Math.max(2,(Math.abs(v)/maxAbs)*(h-14));
+    const x=4+i*(bw+2);
+    bars+=`<rect x="${x}" y="${(base-barH).toFixed(1)}" width="${bw}" height="${barH.toFixed(1)}" rx="1.5" fill="${v>=0?"#e0453a":"#2fa877"}" opacity=".9"><title>${f.name} 近1月 ${f.m1}</title></rect>`;
+  });
+  const tips=JSON.stringify(fs.map((f,i)=>({d:f.name+" 近1月",v:f.m1,x:+(4+i*(bw+2)+bw/2).toFixed(1),y:+base.toFixed(1)})));
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-tips='${tips}'>
+    <line x1="4" y1="${base}" x2="${w-4}" y2="${base}" stroke="#1e3345" stroke-width="1"/>
+    ${bars}
+  </svg><span class="mlab">${fs.length}只 近1月%</span>`;
+}
+function miniOf(a){
+  if(a.type==="funds") return fundMini(a)||"";
+  return spark(a)||"";
+}
+/* ---------- 基金波形（明细区大模块内的折线） ---------- */
+function fundWaveSVG(f, w, h){
+  if(!f.hist||f.hist.length<2) return "";
+  const data=f.hist;
+  const W=w||300,H=h||72,pad=4;
+  let mn=Math.min(...data), mx=Math.max(...data);
+  if(mn===mx){mn-=1;mx+=1;}
+  const xs=i=>pad+(i/(data.length-1))*(W-2*pad);
+  const ys=v=>H-pad-(v-mn)/(mx-mn)*(H-2*pad);
+  const pts=data.map((v,i)=>`${xs(i).toFixed(1)},${ys(v).toFixed(1)}`);
+  const up=data[data.length-1]>=data[0];
+  const color=up?"#e0453a":"#2fa877";
+  const tips=JSON.stringify(data.map((v,i)=>({d:(f.histDates&&f.histDates[i])||"",v,x:+xs(i).toFixed(1),y:+ys(v).toFixed(1)})));
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" data-tips='${tips}'>
+    <path d="M${pts.join(" L")}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${xs(0).toFixed(1)}" cy="${ys(data[0]).toFixed(1)}" r="2.4" fill="${color}" opacity=".6"/>
+    <circle cx="${xs(data.length-1).toFixed(1)}" cy="${ys(data[data.length-1]).toFixed(1)}" r="3.2" fill="${color}"/>
+  </svg>`;
+}
+function fundRangePct(f){
+  if(!f.hist||f.hist.length<2) return "—";
+  const p=(f.hist[f.hist.length-1]/f.hist[0]-1)*100;
+  return (p>=0?"+":"")+p.toFixed(2)+"%";
+}
+function renderFundsBody(a){
+  const body=$("dBody"); body.innerHTML="";
+  const order=["股票","债券","混合","QDII"];
+  const groups=order.map(g=>({name:g, items:a.funds.filter(f=>f.group===g)})).filter(g=>g.items.length);
+  groups.forEach(g=>{
+    const grid=document.createElement("div");
+    grid.className="fund-grid";
+    const hd=document.createElement("div");
+    hd.className="fund-grp-hd";
+    hd.textContent=g.name+" · "+g.items.length+"只";
+    body.appendChild(hd);
+    g.items.forEach(f=>{
+      const chgCls=(f.chg&&f.chg[0]==="-")?"down":"up";
+      const card=document.createElement("div");
+      card.className="fund-card";
+      card.innerHTML=`
+        <div class="fc-head"><span class="fc-name">${f.name}</span><span class="fc-type">${f.type}</span></div>
+        <div class="fc-num"><span class="fc-nav">${f.nav}</span><span class="fc-chg ${chgCls}">${f.chg||""}</span></div>
+        <div class="fc-wave">${fundWaveSVG(f,260,66)}</div>
+        <div class="fc-foot"><span>近30日</span><span class="rng ${chgCls}">${fundRangePct(f)}</span></div>`;
+      grid.appendChild(card);
+    });
+    body.appendChild(grid);
+  });
+}
+function setQuote(el,a){
+  el.textContent=a.price;
+}
+function renderHeader(){
+  $("hmDate").textContent=DATA_DATE;
+  $("hmBase").textContent=DATA_BASE;
+  const g=ASSETS.find(x=>x.id==="gold");
+  $("hmGold").textContent=g?g.price:"—";
+  const u=ASSETS.find(x=>x.id==="bonds");
+  $("hmUs10").textContent=u?u.price:"—";
+  const r=ASSETS.find(x=>x.id==="fxrmb");
+  $("hmRmb").textContent=r?r.price:"—";
+  $("hmDxy").textContent="102.17";
+  $("ovCount").textContent="共 "+GROUPS.length+" 类 · "+ASSETS.length+" 项 · 数据日期 "+DATA_DATE;
+}
+function renderCards(){
+  const wrap=$("cards"); wrap.innerHTML="";
+  const renderCard=a=>{
+    const c=document.createElement("div");
+    c.className="card"+(a.id===activeId?" active":"");
+    c.dataset.id=a.id;
+    const ratioRow=a.type==="housing"?(()=>{
+      const yp=a.hprice[a.hprice.length-1], yr=a.hrent[a.hrent.length-1];
+      const p=(yp&&yr)?(yr*12/yp*100).toFixed(2):"—";
+      return `<div class="ratio">租售比 <b>${p}%</b></div>`;
+    })():"";
+    c.innerHTML=`
+      <div class="card-main">
+        <div class="cn"><span class="nm">${a.name}</span></div>
+        <div class="num">${a.price}<span class="unit">${a.unit||""}</span></div>
+        <div class="chg ${a.chgCls}">${a.chg}</div>
+        ${ratioRow}
+        <div class="adv"><span class="${tagCls(a)}">${a.tag}</span><span class="dtt">${a.time}</span></div>
+      </div>
+      <div class="mini">${miniOf(a)}</div>`;
+    c.onclick=()=>show(a.id);
+    wrap.appendChild(c);
+  };
+  GROUPS.forEach(g=>{
+    const items=g.ids.map(id=>ASSETS.find(x=>x.id===id)).filter(Boolean);
+    if(!items.length) return;
+    const hd=document.createElement("div");
+    hd.className="group-hd";
+    hd.textContent=g.name+" · "+items.length+"项";
+    wrap.appendChild(hd);
+    items.forEach(renderCard);
+  });
+}
+function renderTabs(){
+  const w=$("tabs"); w.innerHTML="";
+  ASSETS.forEach(a=>{
+    const t=document.createElement("div");
+    t.className="tab"+(a.id===activeId?" active":"");
+    t.textContent=a.name;
+    t.onclick=()=>show(a.id);
+    w.appendChild(t);
+  });
+}
+function renderDetail(a){
+  $("dName").textContent=a.name;
+  $("dCode").textContent=a.code;
+  $("dPrice").textContent=a.price;
+  const pc=$("dChg");
+  pc.textContent=a.chg; pc.className="pc "+a.chgCls;
+  $("dTime").textContent="数据时间："+a.time;
+  if(a.type==="funds"){ renderFundsBody(a); return; }
+  let rows="";
+  if(a.type==="housing"){
+    const yp=a.hprice[a.hprice.length-1], yr=a.hrent[a.hrent.length-1];
+    if(yp&&yr){
+      const pct=(yr*12/yp*100).toFixed(2);
+      const years=(yp/(yr*12)).toFixed(1);
+      rows+=`<div class="d-row"><div class="k">租售比</div><div class="v">年租金/房价 = <b>${pct}%</b>（约 ${years} 年回本）<span style="color:var(--muted)">｜ 由最新房价×12月租金自动计算</span></div></div>`;
+    }
+  }
+  if(a.id==="gold"){
+    const fx=ASSETS.find(x=>x.id==="fxrmb");
+    const usd=parseFloat(String(a.price).replace(/[^\d.]/g,""));
+    const cny=fx&&fx.usdcny.length? fx.usdcny[fx.usdcny.length-1] : 0;
+    if(usd&&cny){
+      const perOunce=usd*cny;
+      const perGram=perOunce/31.1035;
+      rows+=`<div class="d-row"><div class="k">人民币金价</div><div class="v">≈ <b>${perOunce.toFixed(0)} 元/盎司</b> ｜ ≈ <b>${perGram.toFixed(1)} 元/克</b><span style="color:var(--muted)">（美元金价 $${usd.toFixed(2)} × 美元中间价 ${cny.toFixed(4)} 自动换算，1盎司=31.1035克）</span></div></div>`;
+    }
+  }
+  a.rows.forEach(r=>{ rows+=`<div class="d-row"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`; });
+  if(a.extra)a.extra.forEach(r=>{ rows+=`<div class="d-row"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`; });
+  $("dBody").innerHTML=rows;
+}
+function drawChart(a){
+  const cb=document.querySelector(".chartbox");
+  if(a.type==="funds"){           // 基金组合：明细区为分组基金大模块，不展示顶部趋势图
+    if(cb) cb.style.display="none";
+    if(chart){ chart.clear(); }
+    return;
+  }
+  if(cb) cb.style.display="";
+  if(!chart){ chart=echarts.init($("chartMain")); }
+  const c=$("chartMain");
+  const isBond=a.type==="bond", isBondPair=a.type==="bondpair", isHousing=a.type==="housing", isFxRmb=a.type==="fxrmb", isFunds=a.type==="funds";
+  const up=isBond?"#e0453a":"#e0453a", down=isBond?"#2fa877":"#2fa877"; // 债券：收益升红(债跌)
+  let opt;
+  if(isFxRmb){
+    const usd=a.usdcny, eur=a.eurcny, hkd=a.hkdcny;
+    const pct=s=>s.map(v=>+(((v/s[0]-1)*100).toFixed(3)));
+    const upct=pct(usd), epct=pct(eur), hpct=pct(hkd);
+    const colors=["#e0453a","#5aa9e6","#e0a94f"];
+    const names=["USD/CNY","EUR/CNY","HKD/CNY"];
+    const raws=[usd,eur,hkd], pcts=[upct,epct,hpct];
+    opt={
+      backgroundColor:"transparent",
+      tooltip:{trigger:"axis",confine:true,
+        formatter:ps=>{let s='<div style="font-weight:600;margin-bottom:4px;">'+ps[0].axisValue+'</div>';
+          ps.forEach(p=>{const i=p.dataIndex,clr=p.color;
+            s+=`<div style="display:flex;align-items:center;gap:6px;line-height:1.7;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${clr};"></span><span style="min-width:62px;">${p.seriesName}</span><span style="font-variant-numeric:tabular-nums;">${raws[names.indexOf(p.seriesName)][i].toFixed(4)}</span><span style="font-variant-numeric:tabular-nums;color:${pcts[names.indexOf(p.seriesName)][i]>=0?'#e0453a':'#2fa877'};">${pcts[names.indexOf(p.seriesName)][i]>=0?'+':''}${pcts[names.indexOf(p.seriesName)][i]}%</span></div>`;});
+          return s;}},
+      legend:{data:names,top:0,textStyle:{color:"#7f96a8",fontSize:11}},
+      grid:{left:50,right:16,top:34,bottom:30},
+      xAxis:{type:"category",data:a.dates,axisLine:{lineStyle:{color:"#1e3345"}},axisLabel:{color:"#7f96a8",fontSize:10}},
+      yAxis:{type:"value",name:"累计变化 %（相对起点）",nameTextStyle:{color:"#5b7186"},
+        axisLabel:{color:"#7f96a8",formatter:v=>v.toFixed(1)+"%"},
+        splitLine:{lineStyle:{color:"#162432"}}},
+      series:[
+        {name:names[0],type:"line",data:upct,smooth:true,symbolSize:5,
+         lineStyle:{width:2.4,color:colors[0]},itemStyle:{color:colors[0]},
+         markLine:{symbol:"none",silent:true,lineStyle:{color:"#2a4053",type:"dashed",width:1},data:[{yAxis:0}]},
+         markPoint:{symbol:"pin",symbolSize:42,label:{color:"#fff",fontSize:10},itemStyle:{color:colors[0]},
+           data:[{coord:[a.dates.length-1,upct[upct.length-1]],value:upct[upct.length-1]>=0?"+"+upct[upct.length-1]+"%":upct[upct.length-1]+"%"}]}},
+        {name:names[1],type:"line",data:epct,smooth:true,symbolSize:5,
+         lineStyle:{width:2,color:colors[1]},itemStyle:{color:colors[1]},
+         markPoint:{symbol:"pin",symbolSize:42,label:{color:"#fff",fontSize:10},itemStyle:{color:colors[1]},
+           data:[{coord:[a.dates.length-1,epct[epct.length-1]],value:epct[epct.length-1]>=0?"+"+epct[epct.length-1]+"%":epct[epct.length-1]+"%"}]}},
+        {name:names[2],type:"line",data:hpct,smooth:true,symbolSize:5,
+         lineStyle:{width:2,color:colors[2],type:"dashed"},itemStyle:{color:colors[2]},
+         markPoint:{symbol:"pin",symbolSize:42,label:{color:"#fff",fontSize:10},itemStyle:{color:colors[2]},
+           data:[{coord:[a.dates.length-1,hpct[hpct.length-1]],value:hpct[hpct.length-1]>=0?"+"+hpct[hpct.length-1]+"%":hpct[hpct.length-1]+"%"}]}}
+      ]
+    };
+  } else if(isBondPair){
+    const pct=s=>s.map(v=>+(((v/s[0]-1)*100).toFixed(3)));
+    const up10=pct(a.us10y), up2=pct(a.us2y), cn10=pct(a.cn10y);
+    const colors=["#e0453a","#5aa9e6","#2fa877"];
+    const names=["US10Y","US2Y(估)","CN10Y"];
+    const raws=[a.us10y,a.us2y,a.cn10y], pcts=[up10,up2,cn10];
+    opt={
+      backgroundColor:"transparent",
+      tooltip:{trigger:"axis",confine:true,
+        formatter:ps=>{let s='<div style="font-weight:600;margin-bottom:4px;">'+ps[0].axisValue+'</div>';
+          ps.forEach(p=>{const i=p.dataIndex,clr=p.color;
+            s+=`<div style="display:flex;align-items:center;gap:6px;line-height:1.7;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${clr};"></span><span style="min-width:74px;">${p.seriesName}</span><span style="font-variant-numeric:tabular-nums;">${raws[names.indexOf(p.seriesName)][i].toFixed(2)}%</span><span style="font-variant-numeric:tabular-nums;color:${pcts[names.indexOf(p.seriesName)][i]>=0?'#e0453a':'#2fa877'};">${pcts[names.indexOf(p.seriesName)][i]>=0?'+':''}${pcts[names.indexOf(p.seriesName)][i]}%</span></div>`;}); return s;}},
+      legend:{data:names,top:0,textStyle:{color:"#7f96a8",fontSize:11}},
+      grid:{left:50,right:16,top:34,bottom:30},
+      xAxis:{type:"category",data:a.dates,axisLine:{lineStyle:{color:"#1e3345"}},axisLabel:{color:"#7f96a8",fontSize:10}},
+      yAxis:{type:"value",name:"累计变化 %（相对起点）",nameTextStyle:{color:"#5b7186"},
+        axisLabel:{color:"#7f96a8",formatter:v=>v.toFixed(1)+"%"},
+        splitLine:{lineStyle:{color:"#162432"}}},
+      series:[
+        {name:names[0],type:"line",data:up10,smooth:true,symbolSize:5,
+         lineStyle:{width:2.4,color:colors[0]},itemStyle:{color:colors[0]},
+         markLine:{symbol:"none",silent:true,lineStyle:{color:"#2a4053",type:"dashed",width:1},data:[{yAxis:0}]},
+         markPoint:{symbol:"pin",symbolSize:42,label:{color:"#fff",fontSize:10},itemStyle:{color:colors[0]},
+           data:[{coord:[a.dates.length-1,up10[up10.length-1]],value:up10[up10.length-1]>=0?"+"+up10[up10.length-1]+"%":up10[up10.length-1]+"%"}]}},
+        {name:names[1],type:"line",data:up2,smooth:true,symbolSize:5,
+         lineStyle:{width:2,color:colors[1],type:"dashed"},itemStyle:{color:colors[1]}},
+        {name:names[2],type:"line",data:cn10,smooth:true,symbolSize:5,
+         lineStyle:{width:2,color:colors[2],type:"dashed"},itemStyle:{color:colors[2]},
+         markPoint:{symbol:"pin",symbolSize:42,label:{color:"#fff",fontSize:10},itemStyle:{color:colors[2]},
+           data:[{coord:[a.dates.length-1,cn10[cn10.length-1]],value:cn10[cn10.length-1]>=0?"+"+cn10[cn10.length-1]+"%":cn10[cn10.length-1]+"%"}]}}
+      ]
+    };
+  } else if(isHousing){
+    const x=a.months;
+    const priceMax=Math.max(...a.hprice), priceMin=Math.min(...a.hprice);
+    const rentMax=Math.max(...a.hrent), rentMin=Math.min(...a.hrent);
+    opt={
+      backgroundColor:"transparent",
+      tooltip:{trigger:"axis",confine:true},
+      legend:{data:["房价均价","平均租金"],top:0,textStyle:{color:"#7f96a8",fontSize:11}},
+      grid:{left:52,right:52,top:34,bottom:30},
+      xAxis:{type:"category",data:x,axisLine:{lineStyle:{color:"#1e3345"}},axisLabel:{color:"#7f96a8",fontSize:10}},
+      yAxis:[
+        {type:"value",name:"房价",nameTextStyle:{color:"#5b7186"},scale:true,
+         splitLine:{lineStyle:{color:"#162432"}},axisLabel:{color:"#7f96a8",formatter:v=>v/1000+"k"}},
+        {type:"value",name:"租金",nameTextStyle:{color:"#5b7186"},scale:true,
+         splitLine:{show:false},axisLabel:{color:"#7f96a8"}}
+      ],
+      series:[
+        {name:"房价均价",type:"line",data:a.hprice,smooth:true,symbolSize:5,
+         lineStyle:{width:2.4,color:"#e0a94f"},itemStyle:{color:"#e0a94f"},
+         markPoint:{symbol:"pin",data:[{coord:[x.length-1,a.hprice[a.hprice.length-1]],value:"最新 "+a.hprice[a.hprice.length-1]}]}},
+        {name:"平均租金",type:"line",yAxisIndex:1,data:a.hrent,smooth:true,symbolSize:5,
+         lineStyle:{width:2,color:"#5aa9e6",type:"dashed"},itemStyle:{color:"#5aa9e6"},
+         markPoint:{symbol:"pin",data:[{coord:[x.length-1,a.hrent[a.hrent.length-1]],value:"最新 "+a.hrent[a.hrent.length-1]}]}}
+      ]
+    };
+  } else if(isFunds){
+    const fs=a.funds.filter(f=>f.hist&&f.hist.length>1);
+    const colors=["#e0453a","#5aa9e6","#e0a94f","#2fa877","#c05ae0","#f08a4f","#3fd0c9","#8b93ff","#e8b64c"];
+    const idx=a.funds[0]&&a.funds[0].hist? a.funds[0].hist.map((_,i)=>i) : [];
+    const xLabel=(i)=>{
+      const f0=a.funds.find(x=>x.hist&&x.hist.length>1);
+      return f0&&f0.histDates? (i===0?f0.histDates[0]:(i===idx.length-1?f0.histDates[f0.histDates.length-1]:"近20日")) : "";
+    };
+    const pct=h=>h.map(v=>+(((v/h[0]-1)*100).toFixed(3)));
+    opt={
+      backgroundColor:"transparent",
+      tooltip:{trigger:"axis",confine:true,
+        formatter:ps=>{let s='<div style="font-weight:600;margin-bottom:4px;">近20交易日 · '+ps[0].axisValue+'</div>';
+          ps.forEach(p=>{s+=`<div style="display:flex;align-items:center;gap:6px;line-height:1.7;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${p.color};"></span><span style="min-width:150px;">${p.seriesName}</span><span style="font-variant-numeric:tabular-nums;color:${p.value>=0?'#e0453a':'#2fa877'};">${p.value>=0?'+':''}${p.value}%</span></div>`;}); return s;}},
+      legend:{type:"scroll",top:0,textStyle:{color:"#7f96a8",fontSize:10},pageIconColor:"#7f96a8",pageTextStyle:{color:"#7f96a8"}},
+      grid:{left:48,right:14,top:46,bottom:30},
+      xAxis:{type:"category",data:idx,axisLine:{lineStyle:{color:"#1e3345"}},axisLabel:{color:"#7f96a8",fontSize:10,formatter:xLabel}},
+      yAxis:{type:"value",name:"累计 %（相对20日前）",nameTextStyle:{color:"#5b7186"},
+        axisLabel:{color:"#7f96a8",formatter:v=>v+"%"},splitLine:{lineStyle:{color:"#162432"}}},
+      dataZoom:[{type:"inside",start:0,end:100}],
+      series:fs.map((f,i)=>({
+        name:f.name.split("(")[0], type:"line", data:pct(f.hist), smooth:true, symbolSize:4,
+        lineStyle:{width:2,color:colors[i%colors.length]}, itemStyle:{color:colors[i%colors.length]}
+      }))
+    };
+  } else {
+    const ohlcData=a.ohlc, dates=a.dates;
+    const closes=ohlcData.map(d=>d[3]);
+    // 5日/10日均线
+    const ma=(n)=>closes.map((_,i)=> i<n-1?"-":+(closes.slice(i-n+1,i+1).reduce((s,v)=>s+v,0)/n).toFixed(4));
+    const scale=a.kscale||Math.max(...closes);
+    // 黄金：叠加人民币金价（元/克），按当日/最近美元中间价折算
+    const isGold=a.id==="gold";
+    let rmbG=[];
+    if(isGold){
+      const fx=ASSETS.find(x=>x.id==="fxrmb");
+      if(fx&&fx.usdcny.length){
+        const fd=fx.dates, fv=fx.usdcny;
+        closes.forEach((c,i)=>{
+          let j=0;
+          for(let k=0;k<fd.length;k++){ if(fd[k]<=dates[i]) j=k; }
+          rmbG.push(+(c*fv[j]/31.1035).toFixed(2));
+        });
+      }
+    }
+    opt={
+      backgroundColor:"transparent",
+      tooltip:{trigger:"axis",axisPointer:{type:"cross"},confine:true,
+        formatter:ps=>{
+          const p=ps[0];
+          if(p.seriesType==="candlestick"){
+            const row=ohlcData[p.dataIndex];   // [high, low, open, close]
+            let s=`${p.axisValue}<br/>开 ${row[2]}　收 ${row[3]}<br/>高 ${row[0]}　低 ${row[1]}`;
+            if(isGold&&rmbG[p.dataIndex]) s+=`<br/>人民币金价 ${rmbG[p.dataIndex]} 元/克`;
+            return s;
+          }
+          return `${p.seriesName} ${p.data}`;
+        }},
+      legend:{data:isGold?["K线","MA5","MA10","人民币金价(元/克)"]:["K线","MA5","MA10"],top:0,textStyle:{color:"#7f96a8",fontSize:11}},
+      grid:{left:56,right:isGold?58:14,top:34,bottom:30},
+      xAxis:{type:"category",data:dates,axisLine:{lineStyle:{color:"#1e3345"}},axisLabel:{color:"#7f96a8",fontSize:10}},
+      yAxis:isGold?[
+        {type:"value",scale:true,
+          splitLine:{lineStyle:{color:"#162432"}},
+          axisLabel:{color:"#7f96a8",formatter:v=>a.percent? v.toFixed(2)+"%" : (scale>500? v.toFixed(0) : scale>10? v.toFixed(1): v.toFixed(4))}},
+        {type:"value",name:"人民币金价 元/克",nameTextStyle:{color:"#5b7186"},scale:true,splitLine:{show:false},
+          axisLabel:{color:"#5aa9e6",formatter:v=>v.toFixed(0)}}
+      ]:{type:"value",scale:true,
+        splitLine:{lineStyle:{color:"#162432"}},
+        axisLabel:{color:"#7f96a8",formatter:v=>a.percent? v.toFixed(2)+"%" : (scale>500? v.toFixed(0) : scale>10? v.toFixed(1): v.toFixed(4))}},
+      dataZoom:[{type:"inside",start:20,end:100},{type:"slider",height:16,bottom:4,start:20,end:100,borderColor:"#1e3345"}],
+      series:[
+        {name:"K线",type:"candlestick",data:ohlcData,
+         itemStyle:{color:up,color0:down,borderColor:up,borderColor0:down}},
+        {name:"MA5",type:"line",data:ma(5),smooth:true,symbol:"none",lineStyle:{width:1.4,color:"#e0a94f"}},
+        {name:"MA10",type:"line",data:ma(10),smooth:true,symbol:"none",lineStyle:{width:1.2,color:"#5aa9e6"}},
+        ...(isGold&&rmbG.length?[{name:"人民币金价(元/克)",type:"line",data:rmbG,smooth:true,symbol:"none",
+           yAxisIndex:1,lineStyle:{width:1.8,color:"#c05ae0"},itemStyle:{color:"#c05ae0"}}]:[])
+      ]
+    };
+  }
+  chart.setOption(opt,true);
+  window.addEventListener("resize",()=>chart&&chart.resize());
+}
+function show(id){
+  activeId=id;
+  const a=ASSETS.find(x=>x.id===id);
+  renderCards(); renderTabs(); renderDetail(a); drawChart(a);
+}
+/* ---------- 迷你图悬停浮层 + 坐标参考线（即时显示日期+数值） ---------- */
+(function(){
+  const tip=document.createElement("div");
+  tip.id="miniTip";
+  tip.style.cssText="position:fixed;z-index:99999;pointer-events:none;display:none;background:rgba(8,18,28,.96);border:1px solid #2a4a62;border-radius:6px;padding:4px 9px;font-size:11.5px;color:#d5e8f5;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:0 4px 14px rgba(0,0,0,.45);";
+  document.body.appendChild(tip);
+  let lastSvg=null;
+  function hideRef(){
+    if(lastSvg){
+      const r=lastSvg.querySelector(".mini-ref"), d=lastSvg.querySelector(".mini-dot");
+      if(r) r.setAttribute("display","none");
+      if(d) d.setAttribute("display","none");
+      lastSvg=null;
+    }
+    tip.style.display="none";
+  }
+  document.addEventListener("mousemove",e=>{
+    const svg=e.target.closest?e.target.closest("svg[data-tips]"):null;
+    if(!svg){ hideRef(); return; }
+    let tips=null;
+    try{ tips=JSON.parse(svg.getAttribute("data-tips")); }catch(err){ tips=null; }
+    if(!tips||!tips.length){ hideRef(); return; }
+    const r=svg.getBoundingClientRect();
+    if(r.width<=0) return;
+    let idx=Math.round((e.clientX-r.left)/(r.width)*(tips.length-1));
+    idx=Math.max(0,Math.min(tips.length-1,idx));
+    const t=tips[idx];
+    // 坐标参考线 + 数据点标记（画在 SVG 内部坐标系）
+    let ref=svg.querySelector(".mini-ref"), dot=svg.querySelector(".mini-dot");
+    if(!ref){
+      const ns="http://www.w3.org/2000/svg";
+      ref=document.createElementNS(ns,"line"); ref.setAttribute("class","mini-ref");
+      ref.setAttribute("stroke","#5aa9e6"); ref.setAttribute("stroke-dasharray","3,3"); ref.setAttribute("stroke-width","1.1");
+      svg.appendChild(ref);
+      dot=document.createElementNS(ns,"circle"); dot.setAttribute("class","mini-dot");
+      dot.setAttribute("r","3.2"); dot.setAttribute("fill","#ffd166"); dot.setAttribute("stroke","#0b1520"); dot.setAttribute("stroke-width","1.2");
+      svg.appendChild(dot);
+    }
+    const vb=(svg.getAttribute("viewBox")||"0 0 96 44").split(/\s+/), vh=+vb[3];
+    ref.setAttribute("display","");
+    dot.setAttribute("display","");
+    ref.setAttribute("x1",t.x); ref.setAttribute("x2",t.x); ref.setAttribute("y1",0); ref.setAttribute("y2",vh);
+    dot.setAttribute("cx",t.x); dot.setAttribute("cy",t.y);
+    lastSvg=svg;
+    // 数值浮层
+    tip.textContent=t.d+"  "+t.v;
+    tip.style.display="block";
+    let lx=e.clientX+14, ty=e.clientY-12;
+    const tw=tip.offsetWidth;
+    if(lx+tw>window.innerWidth-6) lx=e.clientX-tw-14;
+    if(ty<6) ty=6;
+    tip.style.left=lx+"px"; tip.style.top=ty+"px";
+  });
+  document.addEventListener("mouseleave",hideRef);
+})();
+function init(){
+  activeId=ASSETS[0].id;
+  renderHeader(); renderCards(); renderTabs(); renderDetail(ASSETS[0]); drawChart(ASSETS[0]);
+  const fn=$("footnote");
+  fn.innerHTML=`<b>数据说明：</b>本看板展示每日美股交易日资产监控日报，数据日期为最近一个交易日收盘（${DATA_DATE}）。当前为自包含静态看板，ECharts 在浏览器端渲染 K 线/趋势图，不依赖图片文件。新增一期数据时，修改页面顶部 <b>ASSETS</b> 数据对象的 <b>ohlc / hprice / hrent / price / chg / rows</b> 字段后刷新即可，图表自动更新。<br><b>K线颜色：</b>红涨绿跌（中国习惯）；<b>债券收益率</b>：收益率上升=红（债券跌），收益率下降=绿（债券涨）。房价为近12个月双轴折线（左轴房价、右轴租金）。`;
+}
+window.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
