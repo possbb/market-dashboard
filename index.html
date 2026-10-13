@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="revised" content="2026-09-23T08:10:00+08:00">
+<meta name="revised" content="2026-10-13T19:20:00+08:00">
 <title>每日资产监控看板 · 美股交易日</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230d1b2a'/><path d='M4 16l5-6 4 4 7-9' stroke='%23e0a94f' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
@@ -630,7 +630,6 @@ function drawChart(a){
     const colors=["#e0453a","#5aa9e6","#e0a94f","#2fa877","#c05ae0","#f08a4f","#3fd0c9","#8b93ff","#e8b64c"];
     const idx=a.funds[0]&&a.funds[0].hist? a.funds[0].hist.map((_,i)=>i) : [];
     const xLabel=(i)=>{
-      // 用第一只有 hist 的基金的日期标注起止
       const f0=a.funds.find(x=>x.hist&&x.hist.length>1);
       return f0&&f0.histDates? (i===0?f0.histDates[0]:(i===idx.length-1?f0.histDates[f0.histDates.length-1]:"近20日")) : "";
     };
@@ -654,10 +653,8 @@ function drawChart(a){
   } else {
     const ohlcData=a.ohlc, dates=a.dates;
     const closes=ohlcData.map(d=>d[3]);
-    // 5日/10日均线
     const ma=(n)=>closes.map((_,i)=> i<n-1?"-":+(closes.slice(i-n+1,i+1).reduce((s,v)=>s+v,0)/n).toFixed(4));
     const scale=a.kscale||Math.max(...closes);
-    // 黄金：叠加人民币金价（元/克），按当日/最近美元中间价折算
     const isGold=a.id==="gold";
     let rmbG=[];
     if(isGold){
@@ -742,7 +739,6 @@ function show(id){
     let idx=Math.round((e.clientX-r.left)/(r.width)*(tips.length-1));
     idx=Math.max(0,Math.min(tips.length-1,idx));
     const t=tips[idx];
-    // 坐标参考线 + 数据点标记（画在 SVG 内部坐标系）
     let ref=svg.querySelector(".mini-ref"), dot=svg.querySelector(".mini-dot");
     if(!ref){
       const ns="http://www.w3.org/2000/svg";
@@ -759,7 +755,6 @@ function show(id){
     ref.setAttribute("x1",t.x); ref.setAttribute("x2",t.x); ref.setAttribute("y1",0); ref.setAttribute("y2",vh);
     dot.setAttribute("cx",t.x); dot.setAttribute("cy",t.y);
     lastSvg=svg;
-    // 数值浮层
     tip.textContent=t.d+"  "+t.v;
     tip.style.display="block";
     let lx=e.clientX+14, ty=e.clientY-12;
